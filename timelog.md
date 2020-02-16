@@ -103,8 +103,8 @@ The idea is to use deep learning (or traditional machine learning) techniques to
 
 ## Janurary week 4
 
-* *15 hrs*: Created an LTSM model for the MNIST dataset with 98% accuracy. 
+* *15 hrs*: Created an LTSM model for the MNIST dataset with 98% accuracy. Read theory behind LTSM and designed basic logic gate model for future use.
 
 ## February week 1
 
-* **:
+* *5 hrs*: 
