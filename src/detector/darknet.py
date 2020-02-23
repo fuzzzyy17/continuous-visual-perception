@@ -1,11 +1,15 @@
 from __future__ import division
 
 import os
+import sys
+sys.path.insert(1, '/src/detector/')
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import util
 import numpy as np
+import cv2
 
 class EmptyLayer(nn.Module):
     def __init__(self):
@@ -25,11 +29,12 @@ class DarkNet(nn.Module):
     def forward(self, x, CUDA):
         outputs = {} #outputs cached for route
         modules = self.blocks[1:] #skip first since net block
+        first_detection = 0
 
         for i, module in enumerate(modules):
             module_type = (module['type'])
 
-            if module_type == ('upsample' or 'convolutional'):
+            if module_type == 'upsample' or module_type == 'convolutional':
                 x = self.module_list[i](x)
             
             elif module_type == 'shortcut':
@@ -52,7 +57,43 @@ class DarkNet(nn.Module):
                     map1 = outputs[i + layers[0]]
                     map2 = outputs[i + layers[1]]
                     x = torch.cat((map1, map2), 1) #concat along depth(channel dim)
-                    
+
+            elif module_type == 'yolo':
+                anchors = self.module_list[i][0].anchors
+                input_dim = int(self.network_info['height']) #no input dims
+                no_classes = int(module['classes'])
+                x = x.data
+                x = util.transform_pred(x, input_dim, no_classes, anchors, CUDA)        
+
+                if first_detection == 0:
+                    detections = x
+                    first_detection = 1
+                else:
+                    detections = torch.cat((detections, x), 1)
+            
+            outputs[i] = x
+        return detections
+    
+    def load_weights(self, weight_file):
+        f = open(weight_file, 'rb')
+        header = np.fromfile(f, dtype=np.int32, count=5) #first 5 vals are headers
+        self.header = torch.from_numpy(header)
+        self.seen = self.header[3]
+        weights = np.fromfile(f, dtype=np.float32)
+
+        pointer = 0
+
+        for i in range(len(self.modules_list)):
+            module_type = self.blocks[i+1]['type']
+            if module_type == 'convolutional':
+                model = self.module_list[i]
+                try:
+                    batch_normalize = int(self.blocks[i+1]["batch_normalize"])
+                except:
+                    batch_normalize = 0
+                
+                if batch_normalize:
+                    pass #cont
 
 def parse_cfg(cfgfile):
 
@@ -163,5 +204,19 @@ def create_modules(blocks): #create module per block
 
     return (network_info, module_list)
 
-blocks = parse_cfg('src/detector/cfg/yolov3.cfg')
-print(create_modules(blocks))
+def get_test_input():
+    img = cv2.imread('src/detector/test.png')
+    img = cv2.resize(img, (608,608)) #resize to input dime
+    img = img[:,:,::-1].transpose((2,0,1)) #bgr to rgb, hwc to chw
+    img = img[np.newaxis,:,:,:]/255 #add channel at 0 for batch, normalise
+    img = torch.from_numpy(img).float()
+    img = Variable(img)    
+    return img
+
+# blocks = parse_cfg('src/detector/cfg/yolov3.cfg')
+# print(create_modules(blocks))
+
+model = DarkNet('src/detector/cfg/yolov3.cfg')
+input = get_test_input()
+pred = model(input, torch.cuda.is_available())
+print(pred)

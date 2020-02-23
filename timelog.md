@@ -107,4 +107,12 @@ The idea is to use deep learning (or traditional machine learning) techniques to
 
 ## February week 1
 
-* *5 hrs*: 
+* *20 hrs*: started work in YOLO implementation in PyTorch. Began work on a darknet network file for object detection.
+
+## February week 2
+
+* *22 hrs*: continued work on YOLO darknet network. Researched into transformations required to ensure an efficient network - started work on tranformations file in order to transform output tensors into one large tensor.
+
+## February week 3
+
+* * *: Transformed feature maps so that they can now be concatenated together to form one tensor that can be operated on at once. Previously was not possible since cannot concat feature maps of differing spatial dims. Finished forward pass and detection layer. Beginning work on implementing pre-trained weights.
