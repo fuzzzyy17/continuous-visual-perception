@@ -115,4 +115,4 @@ The idea is to use deep learning (or traditional machine learning) techniques to
 
 ## February week 3
 
-* * *: Transformed feature maps so that they can now be concatenated together to form one tensor that can be operated on at once. Previously was not possible since cannot concat feature maps of differing spatial dims. Finished forward pass and detection layer. Beginning work on implementing pre-trained weights.
+* *25 hrs*: Transformed feature maps so that they can now be concatenated together to form one tensor that can be operated on at once. Previously was not possible since cannot concat feature maps of differing spatial dims. Finished forward pass and detection layer. Beginning work on implementing pre-trained weights.
