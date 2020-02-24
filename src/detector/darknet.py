@@ -83,7 +83,7 @@ class DarkNet(nn.Module):
 
         pointer = 0
 
-        for i in range(len(self.modules_list)):
+        for i in range(len(self.module_list)):
             module_type = self.blocks[i+1]['type']
             if module_type == 'convolutional':
                 model = self.module_list[i]
@@ -91,9 +91,43 @@ class DarkNet(nn.Module):
                     batch_normalize = int(self.blocks[i+1]["batch_normalize"])
                 except:
                     batch_normalize = 0
+                conv = model[0]    
                 
-                if batch_normalize:
-                    pass #cont
+            if batch_normalize:
+                btc = model[1]
+                no_btc_biases = btc.bias.numel() #no weights of batch normalising layer                   
+                
+                btc_biases = torch.from_numpy(weights[pointer:pointer + no_btc_biases]) #load weights
+                pointer += no_btc_biases
+                btc_weights = torch.from_numpy(weights[pointer:pointer + no_btc_biases])
+                pointer += no_btc_biases
+                btc_mean = torch.from_numpy(weights[pointer:pointer + no_btc_biases]) 
+                pointer += no_btc_biases
+                btc_var = torch.from_numpy(weights[pointer:pointer + no_btc_biases]) 
+                pointer += no_btc_biases
+
+                btc_mean = btc_mean.view_as(btc.running_mean) #reshape weights -> dims of models weights
+                btc_biases = btc_biases.view_as(btc.bias.data)
+                btc_var = btc_var.view_as(btc.running_var)
+                btc_weights = btc_weights.view_as(btc.weight.data)
+                
+                btc.running_mean.data.copy_(btc_mean) #data -> model
+                btc.bias.data.copy_(btc_biases)
+                btc.running_var.data.copy_(btc_var)
+                btc.weight.data.copy_(btc_weights)
+
+            else:
+                no_biases = conv.bias.numel() #no. biases
+                conv_biases = torch.from_numpy(weights[pointer:pointer + no_biases])
+                pointer += no_biases
+                conv_biases = conv_biases.view_as(conv.bias.data)
+                conv.bias.data.copy_(conv_biases)
+
+            no_weights = conv.weight.numel()
+            conv_weights = torch.from_numpy(weights[pointer:pointer + no_weights])
+            pointer += no_weights
+            conv_weights = conv_weights.view_as(conv.weight.data)
+            conv.weight.data.copy_(conv_weights)
 
 def parse_cfg(cfgfile):
 
@@ -217,6 +251,7 @@ def get_test_input():
 # print(create_modules(blocks))
 
 model = DarkNet('src/detector/cfg/yolov3.cfg')
-input = get_test_input()
-pred = model(input, torch.cuda.is_available())
-print(pred)
+model.load_weights('src/detector/cfg/yolov3.weights')
+# input = get_test_input()
+# pred = model(input, torch.cuda.is_available())
+# print(pred)
