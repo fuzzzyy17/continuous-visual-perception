@@ -105,6 +105,7 @@ def results(pred, no_classes, conf, nms_thresh=.4):
             continue
 
         img_classes = get_img_classes(image_pred[:,-1])
+
         for class_ in img_classes: #non-max supprs.
             class_detections = image_pred*(image_pred[:,-1]==class_).float().unsqueeze(1) #find objs of spec. class 
             class_detections_indxs = torch.nonzero(class_detections[:,-2]).squeeze()
@@ -113,3 +114,48 @@ def results(pred, no_classes, conf, nms_thresh=.4):
             sort_conf = torch.sort(img_class_prediction[:,4], descending=True)[1] #sort by max obj conf
             img_class_prediction = img_class_prediction[sort_conf]
             index = img_class_prediction.size(0) #no. detections
+
+            for iou in range(index): #get ious of boxes that exist in next loop
+                try:
+                    ious = calc_bound_box_iou(img_class_prediction[iou].unsqueeze(0), img_class_prediction[iou + 1:])
+                    # second input: tensor w/ multiple rows of bounding boxes
+                except (ValueError, IndexError): #bboxes removed as loop
+                    break
+
+                #elim detects w/ IOU > thresh
+                iou_test = (ious<nms_thresh).float().unsqueeze(1)
+                img_class_prediction[i+1:] = img_class_prediction[i+1:] * iou_test
+                non_0_entries = torch.nonzero(img_class_prediction[:, 4]).squeeze()
+                img_class_prediction = img_class_prediction[non_0_entries].view(-1,7)
+            
+            batch_idx = img_class_prediction.new(img_class_prediction.size(0), 1).fill_(i) # repeat for as many detects for cls in img
+            seq = batch_idx, img_class_prediction
+
+            if not out_init:
+                list_out = torch.cat(seq, 1)
+                out_init = True
+            else:
+                out = (seq, 1)
+                list_out = torch.cat((list_out, out))
+
+    try:
+        return list_out
+    else:
+        return 0
+
+def calc_bound_box_iou(box1, box2): #box1: bbox row; box2: tensor w/ multiple rows of bounding boxes
+
+    b1x1, b1y1, b1x2, b1y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
+    b2x1, b2y1, b2x2, b2y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
+
+    intersection_x1 = torch.max(b1x1, b2x1)
+    intersection_y1 = torch.max(b1y1, b2y1)
+    intersection_x2 = torch.max(b1x2, b2x2)
+    intersection_y2 = torch.max(b1y2, b2y2)
+
+    intersection = torch.clamp(intersection_x2 - intersection_x1 + 1, min = 0) * torch.clamp(intersection_y2, intersection_y1 + 1, min = 0)
+    b1_area = (b1x2 - b1x1 + 1) * (b1y2 - b1y1 + 1)
+    b2_area = (b2x2 - b2x1 + 1) * (b2y2 - b2y1 + 1)
+
+    iou = intersection / (b1_area + b2_area - intersection)
+    return iou #tensor w/ ious of box1 bounding box concat. w/ ea. bbox from box2
