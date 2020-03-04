@@ -8,6 +8,28 @@ from torch.autograd import Variable
 import cv2
 import numpy as np
 
+def load_classes(class_file):
+    f = open(class_file, 'r')
+    classes = f.read().split("\n")[:-1]
+    return classes
+
+def convert_image_to_input(image, input_dim):
+    image = cv2.resize(image, (input_dim, input_dim))
+    image = image[:,:,::-1].transpose((2,0,1)).copy()
+    image = torch.from_numpy(image).float().div(255).unsqueeze(0)
+    return image
+
+def resize_image(image, input_dim): #resize to keep aspect ratio consistent
+    image_h, image_w = image.shape[0], image.shape[1] 
+    input_h, input_w = input_dim
+    new_h = int(image_h * min(input_w/image_w, input_h/image_h))
+    new_w = int(image_w * min(input_w/image_w, input_h/image_h))
+    new_image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+    
+    padded = np.full((input_dim[1], input_dim[0], 3), 128) #padding
+    padded[(input_h - new_h)//2 : (input_h-new_h)//2 + new_h, (input_w - new_w)//2 + new_w,:] = padded
+    return padded
+
 #detection feat map --> 2D tensor
 #rows of tensor corr. to attrs of bounding box
 def transform_pred(pred, input_dim, no_classes, anchors, CUDA):
