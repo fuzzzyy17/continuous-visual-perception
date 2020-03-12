@@ -1,5 +1,3 @@
-from __future__ import division
-
 import os
 import sys
 sys.path.insert(1, '/src/detector/')
@@ -238,20 +236,26 @@ def create_modules(blocks): #create module per block
 
     return (network_info, module_list)
 
-def get_test_input():
-    img = cv2.imread('src/detector/test.png')
-    img = cv2.resize(img, (608,608)) #resize to input dime
-    img = img[:,:,::-1].transpose((2,0,1)) #bgr to rgb, hwc to chw
-    img = img[np.newaxis,:,:,:]/255 #add channel at 0 for batch, normalise
-    img = torch.from_numpy(img).float()
-    img = Variable(img)    
-    return img
+# def get_test_input():
+#     img = cv2.imread('src/detector/test.png')
+#     img = cv2.resize(img, (608,608)) #resize to input dime
+#     img = img[:,:,::-1].transpose((2,0,1)) #bgr to rgb, hwc to chw
+#     img = img[np.newaxis,:,:,:]/255 #add channel at 0 for batch, normalise
+#     img = torch.from_numpy(img).float()
+#     img = Variable(img)    
+#     return img
 
 # blocks = parse_cfg('src/detector/cfg/yolov3.cfg')
 # print(create_modules(blocks))
 
-model = DarkNet('src/detector/cfg/yolov3.cfg')
-model.load_weights('src/detector/cfg/yolov3.weights')
+try:
+    model = DarkNet('cfg/yolov3.cfg')
+except FileNotFoundError:
+    model = DarkNet('src/detector/cfg/yolov3.cfg')
+try:
+    model.load_weights('cfg/yolov3.weights')
+except FileNotFoundError:
+    model.load_weights('src/detector/cfg/yolov3.weights')
 # input = get_test_input()
 # pred = model(input, torch.cuda.is_available())
 # print(pred)

@@ -1,5 +1,3 @@
-from __future__ import division
-
 import os
 import torch
 import torch.nn as nn
@@ -63,7 +61,7 @@ def transform_pred(pred, input_dim, no_classes, anchors, CUDA):
     x_offset = torch.FloatTensor(grid_x).view(-1,1)
     y_offset = torch.FloatTensor(grid_y).view(-1,1)
 
-    try: #if CUDA == True:
+    try:
         y_offset = y_offset.cuda()
         x_offset = x_offset.cuda()
     except:
@@ -108,11 +106,11 @@ def results(pred, no_classes, conf, nms_thresh=.4):
     pred[:,:,:4] = corner_box_coords[:,:,:4]
 
     batch_size = pred.size(0)
-    out_init = False #output not init. 
+    out_init = 0 #output not init. 
 
     for i in range(batch_size): #loop over 1st dim of pred since nms/conf done 1 img at a time
         image_pred = pred[i]
-        max_conf, max_conf_score = torch.max(image_pred[:,5:5 + no_classes], 1) #get index of 5 highest score/val classes
+        max_conf, max_conf_score = torch.max(image_pred[:,5:5 + int(no_classes)], 1) #get index of 5 highest score/val classes
         max_conf_score = max_conf_score.float().unsqueeze(1)
         max_conf = max_conf.float().unsqueeze(1)
         top = (image_pred[:,:5], max_conf, max_conf_score)
@@ -153,16 +151,16 @@ def results(pred, no_classes, conf, nms_thresh=.4):
             batch_idx = img_class_prediction.new(img_class_prediction.size(0), 1).fill_(i) # repeat for as many detects for cls in img
             seq = batch_idx, img_class_prediction
 
-            if not out_init:
+            if out_init == 0:
                 list_out = torch.cat(seq, 1)
-                out_init = True
+                out_init = 1
             else:
-                out = (seq, 1)
+                out = torch.cat(seq, 1)
                 list_out = torch.cat((list_out, out))
 
     try:
         return list_out
-    else:
+    except :
         return 0
 
 def calc_bound_box_iou(box1, box2): #box1: bbox row; box2: tensor w/ multiple rows of bounding boxes
@@ -175,7 +173,7 @@ def calc_bound_box_iou(box1, box2): #box1: bbox row; box2: tensor w/ multiple ro
     intersection_x2 = torch.max(b1x2, b2x2)
     intersection_y2 = torch.max(b1y2, b2y2)
 
-    intersection = torch.clamp(intersection_x2 - intersection_x1 + 1, min = 0) * torch.clamp(intersection_y2, intersection_y1 + 1, min = 0)
+    intersection = torch.clamp(intersection_x2 - intersection_x1 + 1, min = 0) * torch.clamp(intersection_y2 - intersection_y1 + 1, min = 0)
     b1_area = (b1x2 - b1x1 + 1) * (b1y2 - b1y1 + 1)
     b2_area = (b2x2 - b2x1 + 1) * (b2y2 - b2y1 + 1)
 
