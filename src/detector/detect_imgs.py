@@ -15,14 +15,16 @@ import random
 def cmd_line():
     cmd = argparse.ArgumentParser(description="YOLO Detector")
 
-    cmd.add_argument('--images', dest='imgs', default='data/imgs', type=str)
-    cmd.add_argument('--det', dest='det', default='data/det', type=str)
+    cmd.add_argument('--images', dest='imgs', default='../../data/imgs', type=str)
+    cmd.add_argument('--det', dest='det', default='../../data/det', type=str)
     cmd.add_argument('--bs', dest='bs', default=1)
     cmd.add_argument('--nms', dest='nms', default=.4)
     cmd.add_argument('--conf', dest='conf', default=.5)
-    cmd.add_argument('--cfg', dest='cfg', default='src/detector/cfg/yolov3.cfg', type=str) #default='cfg/yolov3.cfg', type=str)
+    cmd.add_argument('--cfg', dest='cfg', default='cfg/yolov3.cfg', type=str)
+    #cmd.add_argument('--cfg', dest='cfg', default='src/detector/cfg/yolov3.cfg', type=str)
     cmd.add_argument('--reso', dest='reso', default="416", type=str)
-    cmd.add_argument('--weights', dest='weights', default='src/detector/cfg/yolov3.weights', type=str) #default='cfg/yolov3.weights', type=str)
+    cmd.add_argument('--weights', dest='weights', default='cfg/yolov3.weights', type=str)
+    #cmd.add_argument('--weights', dest='weights', default='src/detector/cfg/yolov3.weights', type=str)
     
     return cmd.parse_args()
 

@@ -15,13 +15,15 @@ import random
 def cmd_line():
     cmd = argparse.ArgumentParser(description="YOLO Detector")
 
-    cmd.add_argument('--video', dest='video', default='data/vid', type=str)
+    cmd.add_argument('--video', dest='video', default='C:/Users/faiza/videos/disstest.mp4', type=str) #default='data/vid'
     cmd.add_argument('--bs', dest='bs', default=1)
     cmd.add_argument('--nms', dest='nms', default=.4)
     cmd.add_argument('--conf', dest='conf', default=.5)
-    cmd.add_argument('--cfg', dest='cfg', default='src/detector/cfg/yolov3.cfg', type=str) #default='cfg/yolov3.cfg', type=str)
+    #cmd.add_argument('--cfg', dest='cfg', default='src/detector/cfg/yolov3.cfg', type=str)
+    cmd.add_argument('--cfg', dest='cfg', default='cfg/yolov3.cfg', type=str)
     cmd.add_argument('--reso', dest='reso', default="416", type=str)
-    cmd.add_argument('--weights', dest='weights', default='src/detector/cfg/yolov3.weights', type=str) #default='cfg/yolov3.weights', type=str)
+    #cmd.add_argument('--weights', dest='weights', default='src/detector/cfg/yolov3.weights', type=str) 
+    cmd.add_argument('--weights', dest='weights', default='cfg/yolov3.weights', type=str)
     
     return cmd.parse_args()
 
@@ -30,7 +32,7 @@ def draw_boxes(x, results):
     br_corner = tuple(x[3:5].int())
     tl_corner = tuple(x[1:3].int())
     cl = int(x[-1])
-    image = results[int(x[0])]
+    image = results(x[-1])
     label = '{}'.format(classes[cl])
     colour = random.choice(box_colours)
     cv2.rectangle(image, tl_corner, br_corner, colour, 1)
@@ -51,6 +53,32 @@ except:
 
 no_classes = len(classes)
 
+# try:
+#     videofile = '../../data/vid'
+#     stream = cv2.VideoCapture(videofile)
+# except FileNotFoundError:
+#     videofile = 'data/vid'
+#     stream = cv2.VideoCapture(videofile)
+# except:
+#     print("video not found, using webcam")
+#     stream = cv2.VideoCapture(0)
+
+videofile = 'C:/Users/faiza/videos/disstest.mp4'
+stream = cv2.VideoCapture(videofile)
+
+assert stream.isOpened(), 'no video input available'
+
+frames = 0
+
+try:
+    box_colours = pickle.load(open('colours.p', 'rb'))
+except FileNotFoundError:
+    box_colours = pickle.load(open('src/detector/colours.p', 'rb'))
+except:
+    print('colours not found')
+    exit()
+
+start = 0
 params = cmd_line()
 nms = float(params.nms)
 batch_size = int(params.bs)
@@ -69,34 +97,55 @@ if ((input_dim % 32 != 0) or (input_dim <= 32)):
     raise Exception('invalid image size')
 
 model.eval() #eval mode
-read_s = time.time() #need to note time
+start = time.time() 
 
-load_s = time.time()
+while stream.isOpened():
+    valid, frame = stream.read()
 
-det_loop_s = time.time()
-output_init = False
+    if valid != False:
+        image = convert_image_to_input(frame, input_dim)
+        #cv2.imshow("a", frame)
+        img_dim = frame.shape[1], frame.shape[0]
+        img_dim = torch.FloatTensor(img_dim).repeat(1,2)
 
-scale_factor = torch.min(416/image_dims, 1)[0].view(-1, 1) #make coords of bbox conform to image on padded area
-out[:,[1,3]] -= (input_dim - scale_factor * image_dims[:,0].view(-1, 1))/2
-out[:,[2,4]] -= (input_dim - scale_factor * image_dims[:,1].view(-1, 1))/2
-out[:,1:5] /= scale_factor #undo resize image scaling
+        try:
+            image = image.cuda()
+            img_dim = img_dim.cuda()
+        except:
+            continue
 
-for coord in range (out.shape[0]):
-    out[coord, [1,3]] = torch.clamp(out[coord, [1,3]], 0, image_dims[coord,0])
-    out[coord, [2,4]] = torch.clamp(out[coord, [2,4]], 0, image_dims[coord,1])
+        with torch.no_grad():
+            out = model(Variable(image), gpu)
+        out = results(out, no_classes, conf, nms)
 
-class_load = time.time()
+        if type(out) == int:
+            frames +=1 
+            print("vid FPS: {:4.3f}".format(frames / (time.time() - start)))
+            cv2.imshow("frame", frame)
+            term = cv2.waitKey(1)
+            if term & 0xFF == ord('q'):
+                break
+            continue
 
-try:
-    box_colours = pickle.load(open('colours.p', 'rb'))
-except FileNotFoundError:
-    box_colours = pickle.load(open('src/detector/colours.p', 'rb'))
-except:
-    print("colours not found")
+        img_dim = img_dim.repeat(out.size(0), 1)
+        scaling = torch.min(416/img_dim, 1)[0].view(-1, 1)
+        out[:,[1,3]] -= (input_dim - scaling * img_dim[:0].view(-1, 1))/2
+        out[:,[2,4]] -= (input_dim - scaling * img_dim[:1].view(-1, 1))/2
+        out[:,1:5] /= scaling
 
-draw_time = time.time()
+        for c in range(out.shape[0]):
+            out[c, [1,3]] = torch.clamp(out[c, [1,3]], 0, img_dim[c,0])
+            out[c, [2,4]] = torch.clamp(out[c, [2,4]], 0, img_dim[c,1])
+        
+        list(map(lambda x : draw_boxes(x, frame), out))
 
-list(map(lambda x : draw_boxes(x, loaded_imgs), out))
-
-list(map(cv2.imwrite, det_names, loaded_imgs))
-end = time.time()
+        cv2.imshow("frame", frame)
+        term = cv2.waitKey(1)
+        if term & 0xFF == ord('q'):
+            break
+        frames += 1
+        print(time.time() - start)
+        print("FPS: {:3.1f}".format(frames / (time.time() - start)))
+    
+    else:
+        break
