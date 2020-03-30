@@ -15,7 +15,7 @@ import random
 def cmd_line():
     cmd = argparse.ArgumentParser(description="YOLO Detector")
 
-    cmd.add_argument('--video', dest='video', default='C:/Users/faiza/videos/disstest.mp4', type=str) #default='data/vid'
+    cmd.add_argument('--video', dest='video', default='C:/Users/faiza/downloads/fruit-and-vegetable-detection.mp4', type=str) #default='data/vid'
     cmd.add_argument('--bs', dest='bs', default=1)
     cmd.add_argument('--nms', dest='nms', default=.4)
     cmd.add_argument('--conf', dest='conf', default=.5)
@@ -32,7 +32,7 @@ def draw_boxes(x, results):
     br_corner = tuple(x[3:5].int())
     tl_corner = tuple(x[1:3].int())
     cl = int(x[-1])
-    image = results(x[-1])
+    image = results
     label = '{}'.format(classes[cl])
     colour = random.choice(box_colours)
     cv2.rectangle(image, tl_corner, br_corner, colour, 1)
@@ -63,7 +63,7 @@ no_classes = len(classes)
 #     print("video not found, using webcam")
 #     stream = cv2.VideoCapture(0)
 
-videofile = 'C:/Users/faiza/videos/disstest.mp4'
+videofile = 'C:/Users/faiza/downloads/fruit-and-vegetable-detection.mp4'
 stream = cv2.VideoCapture(videofile)
 
 assert stream.isOpened(), 'no video input available'
@@ -129,8 +129,8 @@ while stream.isOpened():
 
         img_dim = img_dim.repeat(out.size(0), 1)
         scaling = torch.min(416/img_dim, 1)[0].view(-1, 1)
-        out[:,[1,3]] -= (input_dim - scaling * img_dim[:0].view(-1, 1))/2
-        out[:,[2,4]] -= (input_dim - scaling * img_dim[:1].view(-1, 1))/2
+        out[:,[1,3]] -= (input_dim - scaling * img_dim[:,0].view(-1, 1))/2
+        out[:,[2,4]] -= (input_dim - scaling * img_dim[:,1].view(-1, 1))/2
         out[:,1:5] /= scaling
 
         for c in range(out.shape[0]):
